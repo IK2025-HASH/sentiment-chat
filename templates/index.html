@@ -10,22 +10,32 @@
 <body class="bg-gray-950 text-white min-h-screen flex items-center justify-center px-4">
   <div class="w-full max-w-md">
 
-    <!-- Hero -->
-    <div class="text-center mb-10">
-      <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-600 text-3xl mb-5">💬</div>
-      <h1 class="text-4xl font-bold tracking-tight mb-2">SentimentChat</h1>
-      <p class="text-gray-400 text-lg">Real-time chat with live sentiment analysis</p>
+    <!-- User bar -->
+    <div class="flex items-center justify-between mb-8">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-sm font-bold">
+          {{ user.name[0] | upper }}
+        </div>
+        <div>
+          <p class="text-sm font-medium text-white">{{ user.name }}</p>
+          <p class="text-xs text-gray-500">{{ user.email }}</p>
+        </div>
+      </div>
+      <a href="/logout" class="text-xs text-gray-500 hover:text-white transition px-3 py-1.5 rounded-lg hover:bg-gray-800">
+        Sign out
+      </a>
     </div>
 
-    <!-- Join form -->
+    <!-- Hero -->
+    <div class="text-center mb-8">
+      <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-600 text-3xl mb-5">💬</div>
+      <h1 class="text-4xl font-bold tracking-tight mb-2">SentimentChat</h1>
+      <p class="text-gray-400">Real-time chat with live sentiment analysis</p>
+    </div>
+
+    <!-- Room join form -->
     <div class="bg-gray-900 border border-gray-800 rounded-2xl p-8 shadow-2xl">
       <form id="joinForm" class="space-y-5">
-        <div>
-          <label class="block text-sm font-medium text-gray-300 mb-2">Your Name</label>
-          <input id="username" type="text" placeholder="e.g. Alex" required autocomplete="off"
-            class="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500
-                   focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition" />
-        </div>
         <div>
           <label class="block text-sm font-medium text-gray-300 mb-2">Chat Room</label>
           <input id="room" type="text" placeholder="e.g. sales-team" required autocomplete="off"
@@ -66,10 +76,9 @@
   <script>
     document.getElementById('joinForm').addEventListener('submit', function (e) {
       e.preventDefault();
-      const username = document.getElementById('username').value.trim();
       const room = document.getElementById('room').value.trim().toLowerCase().replace(/\s+/g, '-');
-      if (username && room) {
-        window.location.href = `/chat/${encodeURIComponent(room)}?username=${encodeURIComponent(username)}`;
+      if (room) {
+        window.location.href = `/chat/${encodeURIComponent(room)}`;
       }
     });
   </script>

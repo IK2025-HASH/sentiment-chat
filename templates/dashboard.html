@@ -17,7 +17,8 @@
         <h1 class="text-2xl font-bold"># {{ room }}</h1>
         <p class="text-gray-500 text-sm mt-0.5">Sentiment analytics dashboard</p>
       </div>
-      <div class="flex gap-3">
+      <div class="flex gap-3 items-center">
+        <span class="text-xs text-gray-500">{{ user.name }}</span>
         <button onclick="loadData()"
           class="bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded-lg text-sm transition">
           ↻ Refresh
@@ -26,6 +27,7 @@
           class="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-lg text-sm font-medium transition">
           ← Back to Chat
         </a>
+        <a href="/logout" class="text-xs text-gray-500 hover:text-white transition">Sign out</a>
       </div>
     </div>
 
@@ -52,13 +54,11 @@
     <!-- Chart + Table -->
     <div class="grid md:grid-cols-2 gap-6">
 
-      <!-- Doughnut chart -->
       <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
         <h2 class="font-semibold mb-5">Sentiment Distribution</h2>
         <div class="flex items-center justify-center" style="height:220px">
           <canvas id="donut"></canvas>
         </div>
-        <!-- Breakdown bars -->
         <div class="mt-6 space-y-2">
           <div class="flex items-center gap-3">
             <span class="text-xs text-gray-400 w-16">Positive</span>
@@ -84,7 +84,6 @@
         </div>
       </div>
 
-      <!-- Recent messages -->
       <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 flex flex-col">
         <h2 class="font-semibold mb-4">Recent Messages</h2>
         <div id="msgList" class="flex-1 space-y-1 overflow-y-auto" style="max-height:320px">
@@ -93,7 +92,6 @@
       </div>
 
     </div>
-
     <p class="text-xs text-gray-700 mt-6 text-center">Auto-refreshes every 15 seconds</p>
   </div>
 
@@ -110,64 +108,47 @@
         fetch(`/api/analytics/${ROOM}`),
         fetch(`/api/messages/${ROOM}?limit=30`),
       ]);
-      const a = await aRes.json();
+      const a    = await aRes.json();
       const msgs = await mRes.json();
 
-      // Stats
       document.getElementById('s-total').textContent = a.total;
-
       const avgEl = document.getElementById('s-avg');
-      const avg = a.avg_score;
-      avgEl.textContent = (avg > 0 ? '+' : '') + avg;
-      avgEl.className = `text-3xl font-bold ${avg >= 0.05 ? 'text-green-400' : avg <= -0.05 ? 'text-red-400' : 'text-gray-300'}`;
-
+      avgEl.textContent = (a.avg_score > 0 ? '+' : '') + a.avg_score;
+      avgEl.className = `text-3xl font-bold ${a.avg_score >= 0.05 ? 'text-green-400' : a.avg_score <= -0.05 ? 'text-red-400' : 'text-gray-300'}`;
       document.getElementById('s-pos').textContent = a.positive_pct + '%';
       document.getElementById('s-neg').textContent = a.negative_pct + '%';
 
-      // Bars
       document.getElementById('bar-pos').style.width = a.positive_pct + '%';
-      document.getElementById('bar-neu').style.width = a.neutral_pct + '%';
+      document.getElementById('bar-neu').style.width = a.neutral_pct  + '%';
       document.getElementById('bar-neg').style.width = a.negative_pct + '%';
       document.getElementById('pct-pos').textContent = a.positive_pct + '%';
-      document.getElementById('pct-neu').textContent = a.neutral_pct + '%';
+      document.getElementById('pct-neu').textContent = a.neutral_pct  + '%';
       document.getElementById('pct-neg').textContent = a.negative_pct + '%';
 
-      // Chart
       if (chart) chart.destroy();
-      const ctx = document.getElementById('donut').getContext('2d');
-      chart = new Chart(ctx, {
+      chart = new Chart(document.getElementById('donut').getContext('2d'), {
         type: 'doughnut',
         data: {
           labels: ['Positive', 'Neutral', 'Negative'],
-          datasets: [{
-            data: [a.positive || 0, a.neutral || 0, a.negative || 0],
-            backgroundColor: ['#16a34a', '#4b5563', '#dc2626'],
-            borderWidth: 0,
-            hoverOffset: 6,
-          }],
+          datasets: [{ data: [a.positive||0, a.neutral||0, a.negative||0],
+            backgroundColor: ['#16a34a','#4b5563','#dc2626'], borderWidth: 0, hoverOffset: 6 }],
         },
         options: {
           cutout: '68%',
-          plugins: {
-            legend: { labels: { color: '#9ca3af', boxWidth: 12, padding: 16 } },
-          },
+          plugins: { legend: { labels: { color: '#9ca3af', boxWidth: 12, padding: 16 } } },
         },
       });
 
-      // Message list
       const listEl = document.getElementById('msgList');
-      if (!msgs.length) {
-        listEl.innerHTML = '<p class="text-gray-600 text-sm">No messages yet.</p>';
-        return;
-      }
+      if (!msgs.length) { listEl.innerHTML = '<p class="text-gray-600 text-sm">No messages yet.</p>'; return; }
       const COLORS = { positive: 'text-green-400', negative: 'text-red-400', neutral: 'text-gray-500' };
-      listEl.innerHTML = [...msgs].reverse().slice(0, 20).map(m => `
+      listEl.innerHTML = [...msgs].reverse().slice(0,20).map(m => `
         <div class="flex items-start gap-2 py-2 border-b border-gray-800/70 last:border-0">
           <div class="flex-1 min-w-0">
             <span class="text-xs font-medium text-gray-400">${esc(m.username)}</span>
             <p class="text-sm text-gray-300 truncate">${esc(m.content)}</p>
           </div>
-          <span class="text-xs shrink-0 ${COLORS[m.sentiment_label] || 'text-gray-500'} font-medium">
+          <span class="text-xs shrink-0 ${COLORS[m.sentiment_label]||'text-gray-500'} font-medium">
             ${m.sentiment_score > 0 ? '+' : ''}${m.sentiment_score}
           </span>
         </div>`).join('');

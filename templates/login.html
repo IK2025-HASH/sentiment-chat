@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign In — SentimentChat</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body class="bg-gray-950 text-white min-h-screen flex items-center justify-center px-4">
+  <div class="w-full max-w-sm">
+
+    <div class="text-center mb-8">
+      <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-blue-600 text-2xl mb-4">💬</div>
+      <h1 class="text-2xl font-bold">Sign in to SentimentChat</h1>
+      <p class="text-gray-500 text-sm mt-1">Enter your credentials to continue</p>
+    </div>
+
+    {% if error %}
+    <div class="bg-red-900/40 border border-red-800 text-red-300 text-sm rounded-xl px-4 py-3 mb-5">
+      {{ error }}
+    </div>
+    {% endif %}
+
+    <div class="bg-gray-900 border border-gray-800 rounded-2xl p-7 shadow-2xl">
+      <form method="POST" action="/login" class="space-y-5">
+        <div>
+          <label class="block text-sm font-medium text-gray-300 mb-2">Email</label>
+          <input name="email" type="email" required placeholder="you@company.com" autocomplete="email"
+            class="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500
+                   focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition text-sm" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-300 mb-2">Password</label>
+          <input name="password" type="password" required placeholder="••••••••" autocomplete="current-password"
+            class="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500
+                   focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition text-sm" />
+        </div>
+        <button type="submit"
+          class="w-full bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-semibold
+                 py-3 px-6 rounded-xl transition-colors text-sm">
+          Sign In →
+        </button>
+      </form>
+    </div>
+
+  </div>
+</body>
+</html>

@@ -27,6 +27,10 @@
         class="text-xs bg-gray-800 hover:bg-gray-700 px-3 py-1.5 rounded-full transition flex items-center gap-1.5">
         📊 <span class="hidden sm:inline">Dashboard</span>
       </a>
+      <a href="/logout"
+        class="text-xs text-gray-500 hover:text-white px-3 py-1.5 rounded-full hover:bg-gray-800 transition">
+        Sign out
+      </a>
     </div>
   </header>
 
@@ -52,30 +56,18 @@
 
   <script>
     const ROOM = "{{ room }}";
-    const params = new URLSearchParams(location.search);
-    const ME = params.get('username');
+    const ME   = "{{ username }}";
 
-    if (!ME) { location.href = '/'; }
-
-    const messagesEl = document.getElementById('messages');
+    const messagesEl  = document.getElementById('messages');
     const userCountEl = document.getElementById('userCount');
     const moodBadgeEl = document.getElementById('moodBadge');
-    const msgForm = document.getElementById('msgForm');
-    const msgInput = document.getElementById('msgInput');
+    const msgForm     = document.getElementById('msgForm');
+    const msgInput    = document.getElementById('msgInput');
 
     const SENTIMENT = {
-      positive: {
-        wrap: 'bg-green-900/20 border-green-800/40',
-        badge: 'bg-green-900/60 text-green-300',
-      },
-      negative: {
-        wrap: 'bg-red-900/20 border-red-800/40',
-        badge: 'bg-red-900/60 text-red-300',
-      },
-      neutral: {
-        wrap: 'bg-gray-800/60 border-gray-700/50',
-        badge: 'bg-gray-700 text-gray-400',
-      },
+      positive: { wrap: 'bg-green-900/20 border-green-800/40', badge: 'bg-green-900/60 text-green-300' },
+      negative: { wrap: 'bg-red-900/20 border-red-800/40',   badge: 'bg-red-900/60 text-red-300' },
+      neutral:  { wrap: 'bg-gray-800/60 border-gray-700/50', badge: 'bg-gray-700 text-gray-400' },
     };
 
     let recentScores = [];
@@ -88,17 +80,11 @@
       return new Date(iso || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
-    function scoreLabel(score) {
-      return (score > 0 ? '+' : '') + score;
-    }
-
     function appendMessage(d) {
       document.getElementById('loadingMsg')?.remove();
-
-      const cfg = SENTIMENT[d.sentiment.label] || SENTIMENT.neutral;
+      const cfg  = SENTIMENT[d.sentiment.label] || SENTIMENT.neutral;
       const isMe = d.username === ME;
-
-      const row = document.createElement('div');
+      const row  = document.createElement('div');
       row.className = `flex ${isMe ? 'justify-end' : 'justify-start'} msg-row`;
       row.innerHTML = `
         <div class="max-w-sm md:max-w-lg">
@@ -107,16 +93,14 @@
             <p class="text-sm text-white leading-relaxed">${esc(d.content)}</p>
             <div class="flex items-center gap-2 mt-2 flex-wrap">
               <span class="text-xs px-2 py-0.5 rounded-full font-medium ${cfg.badge}">
-                ${d.sentiment.emoji} ${d.sentiment.label} ${scoreLabel(d.sentiment.score)}
+                ${d.sentiment.emoji} ${d.sentiment.label} ${d.sentiment.score > 0 ? '+' : ''}${d.sentiment.score}
               </span>
               <span class="text-xs text-gray-600">${timeStr(d.created_at)}</span>
             </div>
           </div>
         </div>`;
-
       messagesEl.appendChild(row);
       messagesEl.scrollTop = messagesEl.scrollHeight;
-
       recentScores.push(d.sentiment.score);
       if (recentScores.length > 15) recentScores.shift();
       updateMood();
@@ -124,9 +108,7 @@
 
     function appendSystem(text, users) {
       document.getElementById('loadingMsg')?.remove();
-      if (users !== undefined) {
-        userCountEl.textContent = `${users} online`;
-      }
+      if (users !== undefined) userCountEl.textContent = `${users} online`;
       const el = document.createElement('div');
       el.className = 'text-center text-xs text-gray-600 py-0.5';
       el.textContent = text;
@@ -138,37 +120,29 @@
       if (!recentScores.length) return;
       const avg = recentScores.reduce((a, b) => a + b, 0) / recentScores.length;
       let label, cls;
-      if (avg >= 0.05) {
-        label = '😊 Positive';
-        cls = 'bg-green-900/40 text-green-300';
-      } else if (avg <= -0.05) {
-        label = '😟 Negative';
-        cls = 'bg-red-900/40 text-red-300';
-      } else {
-        label = '😐 Neutral';
-        cls = 'bg-gray-800 text-gray-400';
-      }
+      if (avg >= 0.05)       { label = '😊 Positive'; cls = 'bg-green-900/40 text-green-300'; }
+      else if (avg <= -0.05) { label = '😟 Negative'; cls = 'bg-red-900/40 text-red-300'; }
+      else                   { label = '😐 Neutral';  cls = 'bg-gray-800 text-gray-400'; }
       moodBadgeEl.textContent = `Room Mood: ${label}`;
       moodBadgeEl.className = `text-xs font-medium px-3 py-1.5 rounded-full transition-all ${cls}`;
     }
 
-    // Load history
+    const EMOJI = { positive: '😊', negative: '😟', neutral: '😐' };
+
     fetch(`/api/messages/${ROOM}`)
       .then(r => r.json())
       .then(msgs => {
-        if (msgs.length === 0) {
+        if (!msgs.length) {
           document.getElementById('loadingMsg').textContent = 'No messages yet — say hello!';
           return;
         }
         msgs.forEach(m => appendMessage({
-          username: m.username,
-          content: m.content,
-          sentiment: { label: m.sentiment_label, score: m.sentiment_score, emoji: SENTIMENT[m.sentiment_label] ? (['positive','negative','neutral'].includes(m.sentiment_label) ? (m.sentiment_label === 'positive' ? '😊' : m.sentiment_label === 'negative' ? '😟' : '😐') : '😐') : '😐' },
+          username: m.username, content: m.content,
+          sentiment: { label: m.sentiment_label, score: m.sentiment_score, emoji: EMOJI[m.sentiment_label] || '😐' },
           created_at: m.created_at,
         }));
       });
 
-    // WebSocket
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
     const ws = new WebSocket(`${proto}//${location.host}/ws/${ROOM}/${encodeURIComponent(ME)}`);
 
@@ -177,8 +151,7 @@
       if (d.type === 'message') appendMessage(d);
       else if (d.type === 'system') appendSystem(d.message, d.users);
     };
-
-    ws.onopen = () => userCountEl.textContent = '1 online';
+    ws.onopen  = () => userCountEl.textContent = '1 online';
     ws.onclose = () => appendSystem('Disconnected. Refresh to reconnect.');
 
     msgForm.addEventListener('submit', e => {
@@ -190,7 +163,6 @@
       }
     });
 
-    // Focus input on load
     msgInput.focus();
   </script>
 </body>
