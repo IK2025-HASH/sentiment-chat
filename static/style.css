@@ -1,0 +1,23 @@
+/* Smooth scroll in message pane */
+#messages {
+  scroll-behavior: smooth;
+}
+
+/* Thin custom scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #4b5563; }
+
+/* Fade-in animation for new messages */
+.msg-row {
+  animation: fadeUp 0.18s ease both;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Prevent iOS rubber-band on body */
+body { overscroll-behavior: none; }

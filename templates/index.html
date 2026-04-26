@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SentimentChat — Real-time Sentiment Analysis</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body class="bg-gray-950 text-white min-h-screen flex items-center justify-center px-4">
+  <div class="w-full max-w-md">
+
+    <!-- Hero -->
+    <div class="text-center mb-10">
+      <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-600 text-3xl mb-5">💬</div>
+      <h1 class="text-4xl font-bold tracking-tight mb-2">SentimentChat</h1>
+      <p class="text-gray-400 text-lg">Real-time chat with live sentiment analysis</p>
+    </div>
+
+    <!-- Join form -->
+    <div class="bg-gray-900 border border-gray-800 rounded-2xl p-8 shadow-2xl">
+      <form id="joinForm" class="space-y-5">
+        <div>
+          <label class="block text-sm font-medium text-gray-300 mb-2">Your Name</label>
+          <input id="username" type="text" placeholder="e.g. Alex" required autocomplete="off"
+            class="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500
+                   focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-300 mb-2">Chat Room</label>
+          <input id="room" type="text" placeholder="e.g. sales-team" required autocomplete="off"
+            class="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500
+                   focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition" />
+          <p class="text-xs text-gray-600 mt-1.5">Share the room name with teammates to chat together.</p>
+        </div>
+        <button type="submit"
+          class="w-full bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-semibold
+                 py-3 px-6 rounded-xl transition-colors">
+          Join Room →
+        </button>
+      </form>
+    </div>
+
+    <!-- Feature pills -->
+    <div class="mt-8 flex justify-center gap-6 text-center">
+      <div class="flex flex-col items-center gap-1.5">
+        <span class="text-2xl">😊</span>
+        <span class="text-xs text-gray-500">Live Sentiment</span>
+      </div>
+      <div class="flex flex-col items-center gap-1.5">
+        <span class="text-2xl">📊</span>
+        <span class="text-xs text-gray-500">Analytics</span>
+      </div>
+      <div class="flex flex-col items-center gap-1.5">
+        <span class="text-2xl">⚡</span>
+        <span class="text-xs text-gray-500">Real-time</span>
+      </div>
+      <div class="flex flex-col items-center gap-1.5">
+        <span class="text-2xl">🏢</span>
+        <span class="text-xs text-gray-500">Multi-room</span>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    document.getElementById('joinForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+      const username = document.getElementById('username').value.trim();
+      const room = document.getElementById('room').value.trim().toLowerCase().replace(/\s+/g, '-');
+      if (username && room) {
+        window.location.href = `/chat/${encodeURIComponent(room)}?username=${encodeURIComponent(username)}`;
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>#{{ room }} Analytics — SentimentChat</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body class="bg-gray-950 text-white min-h-screen">
+  <div class="max-w-5xl mx-auto px-5 py-8">
+
+    <!-- Header -->
+    <div class="flex flex-wrap items-center justify-between gap-4 mb-8">
+      <div>
+        <h1 class="text-2xl font-bold"># {{ room }}</h1>
+        <p class="text-gray-500 text-sm mt-0.5">Sentiment analytics dashboard</p>
+      </div>
+      <div class="flex gap-3">
+        <button onclick="loadData()"
+          class="bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded-lg text-sm transition">
+          ↻ Refresh
+        </button>
+        <a href="/chat/{{ room }}"
+          class="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-lg text-sm font-medium transition">
+          ← Back to Chat
+        </a>
+      </div>
+    </div>
+
+    <!-- Stat cards -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+        <p class="text-xs text-gray-500 mb-1">Total Messages</p>
+        <p id="s-total" class="text-3xl font-bold">—</p>
+      </div>
+      <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+        <p class="text-xs text-gray-500 mb-1">Avg Sentiment</p>
+        <p id="s-avg" class="text-3xl font-bold text-gray-300">—</p>
+      </div>
+      <div class="bg-gray-900 border border-green-900/40 rounded-xl p-5">
+        <p class="text-xs text-green-600 mb-1">😊 Positive</p>
+        <p id="s-pos" class="text-3xl font-bold text-green-400">—</p>
+      </div>
+      <div class="bg-gray-900 border border-red-900/40 rounded-xl p-5">
+        <p class="text-xs text-red-600 mb-1">😟 Negative</p>
+        <p id="s-neg" class="text-3xl font-bold text-red-400">—</p>
+      </div>
+    </div>
+
+    <!-- Chart + Table -->
+    <div class="grid md:grid-cols-2 gap-6">
+
+      <!-- Doughnut chart -->
+      <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
+        <h2 class="font-semibold mb-5">Sentiment Distribution</h2>
+        <div class="flex items-center justify-center" style="height:220px">
+          <canvas id="donut"></canvas>
+        </div>
+        <!-- Breakdown bars -->
+        <div class="mt-6 space-y-2">
+          <div class="flex items-center gap-3">
+            <span class="text-xs text-gray-400 w-16">Positive</span>
+            <div class="flex-1 bg-gray-800 rounded-full h-2 overflow-hidden">
+              <div id="bar-pos" class="bg-green-500 h-2 rounded-full transition-all" style="width:0%"></div>
+            </div>
+            <span id="pct-pos" class="text-xs text-gray-400 w-8 text-right">0%</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="text-xs text-gray-400 w-16">Neutral</span>
+            <div class="flex-1 bg-gray-800 rounded-full h-2 overflow-hidden">
+              <div id="bar-neu" class="bg-gray-500 h-2 rounded-full transition-all" style="width:0%"></div>
+            </div>
+            <span id="pct-neu" class="text-xs text-gray-400 w-8 text-right">0%</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="text-xs text-gray-400 w-16">Negative</span>
+            <div class="flex-1 bg-gray-800 rounded-full h-2 overflow-hidden">
+              <div id="bar-neg" class="bg-red-500 h-2 rounded-full transition-all" style="width:0%"></div>
+            </div>
+            <span id="pct-neg" class="text-xs text-gray-400 w-8 text-right">0%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent messages -->
+      <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 flex flex-col">
+        <h2 class="font-semibold mb-4">Recent Messages</h2>
+        <div id="msgList" class="flex-1 space-y-1 overflow-y-auto" style="max-height:320px">
+          <p class="text-gray-600 text-sm">Loading…</p>
+        </div>
+      </div>
+
+    </div>
+
+    <p class="text-xs text-gray-700 mt-6 text-center">Auto-refreshes every 15 seconds</p>
+  </div>
+
+  <script>
+    const ROOM = "{{ room }}";
+    let chart = null;
+
+    function esc(t) {
+      return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    async function loadData() {
+      const [aRes, mRes] = await Promise.all([
+        fetch(`/api/analytics/${ROOM}`),
+        fetch(`/api/messages/${ROOM}?limit=30`),
+      ]);
+      const a = await aRes.json();
+      const msgs = await mRes.json();
+
+      // Stats
+      document.getElementById('s-total').textContent = a.total;
+
+      const avgEl = document.getElementById('s-avg');
+      const avg = a.avg_score;
+      avgEl.textContent = (avg > 0 ? '+' : '') + avg;
+      avgEl.className = `text-3xl font-bold ${avg >= 0.05 ? 'text-green-400' : avg <= -0.05 ? 'text-red-400' : 'text-gray-300'}`;
+
+      document.getElementById('s-pos').textContent = a.positive_pct + '%';
+      document.getElementById('s-neg').textContent = a.negative_pct + '%';
+
+      // Bars
+      document.getElementById('bar-pos').style.width = a.positive_pct + '%';
+      document.getElementById('bar-neu').style.width = a.neutral_pct + '%';
+      document.getElementById('bar-neg').style.width = a.negative_pct + '%';
+      document.getElementById('pct-pos').textContent = a.positive_pct + '%';
+      document.getElementById('pct-neu').textContent = a.neutral_pct + '%';
+      document.getElementById('pct-neg').textContent = a.negative_pct + '%';
+
+      // Chart
+      if (chart) chart.destroy();
+      const ctx = document.getElementById('donut').getContext('2d');
+      chart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Positive', 'Neutral', 'Negative'],
+          datasets: [{
+            data: [a.positive || 0, a.neutral || 0, a.negative || 0],
+            backgroundColor: ['#16a34a', '#4b5563', '#dc2626'],
+            borderWidth: 0,
+            hoverOffset: 6,
+          }],
+        },
+        options: {
+          cutout: '68%',
+          plugins: {
+            legend: { labels: { color: '#9ca3af', boxWidth: 12, padding: 16 } },
+          },
+        },
+      });
+
+      // Message list
+      const listEl = document.getElementById('msgList');
+      if (!msgs.length) {
+        listEl.innerHTML = '<p class="text-gray-600 text-sm">No messages yet.</p>';
+        return;
+      }
+      const COLORS = { positive: 'text-green-400', negative: 'text-red-400', neutral: 'text-gray-500' };
+      listEl.innerHTML = [...msgs].reverse().slice(0, 20).map(m => `
+        <div class="flex items-start gap-2 py-2 border-b border-gray-800/70 last:border-0">
+          <div class="flex-1 min-w-0">
+            <span class="text-xs font-medium text-gray-400">${esc(m.username)}</span>
+            <p class="text-sm text-gray-300 truncate">${esc(m.content)}</p>
+          </div>
+          <span class="text-xs shrink-0 ${COLORS[m.sentiment_label] || 'text-gray-500'} font-medium">
+            ${m.sentiment_score > 0 ? '+' : ''}${m.sentiment_score}
+          </span>
+        </div>`).join('');
+    }
+
+    loadData();
+    setInterval(loadData, 15000);
+  </script>
+</body>
+</html>
