@@ -548,6 +548,28 @@ def get_career_profile(request: Request):
         db.close()
 
 
+@app.patch("/api/career/profile")
+async def patch_career_profile(request: Request):
+    user = _session_user(request)
+    if not user:
+        return JSONResponse({"error": "unauthenticated"}, status_code=401)
+    body = await request.json()
+    db = SessionLocal()
+    try:
+        p = db.query(CareerProfile).filter(CareerProfile.user_id == user["id"]).first()
+        if not p:
+            return JSONResponse({"error": "profile not found"}, status_code=404)
+        for field in ("headline", "skills", "experience", "target_roles", "cv_text", "notes"):
+            if field in body:
+                val = body[field]
+                setattr(p, field, json.dumps(val) if isinstance(val, (list, dict)) else val)
+        p.updated_at = datetime.utcnow()
+        db.commit()
+        return {"ok": True}
+    finally:
+        db.close()
+
+
 @app.get("/api/career/applications")
 def get_applications(request: Request):
     user = _session_user(request)
@@ -600,56 +622,8 @@ async def update_application(app_id: str, request: Request):
         db.close()
 
 
-# ── WebSocket: group chat ─────────────────────────────────────────────────────
-
-@app.websocket("/ws/{room}/{username}")
-async def ws_endpoint(ws: WebSocket, room: str, username: str):
-    await manager.connect(ws, room)
-    await manager.broadcast(
-        {"type": "system", "message": f"{username} joined the room", "users": manager.count(room)},
-        room,
-    )
-    try:
-        while True:
-            text = (await ws.receive_text()).strip()
-            if not text:
-                continue
-
-            sentiment = analyze(text)
-            db = SessionLocal()
-            try:
-                msg = Message(
-                    id=str(uuid.uuid4()),
-                    room=room,
-                    username=username,
-                    content=text,
-                    sentiment_label=sentiment["label"],
-                    sentiment_score=sentiment["score"],
-                )
-                db.add(msg)
-                db.commit()
-                payload = {
-                    "type":       "message",
-                    "id":         msg.id,
-                    "username":   username,
-                    "content":    text,
-                    "sentiment":  sentiment,
-                    "created_at": msg.created_at.isoformat(),
-                }
-            finally:
-                db.close()
-
-            await manager.broadcast(payload, room)
-
-    except WebSocketDisconnect:
-        manager.disconnect(ws, room)
-        await manager.broadcast(
-            {"type": "system", "message": f"{username} left the room", "users": manager.count(room)},
-            room,
-        )
-
-
-# ── WebSocket: job coach AI ───────────────────────────────────────────────────
+# ── WebSocket: job coach AI — must be defined BEFORE the generic /ws/{room}/{username}
+#    so Starlette matches /ws/career/* here instead of falling into the group chat handler
 
 @app.websocket("/ws/career/{user_id}")
 async def career_ws(ws: WebSocket, user_id: str):
@@ -719,3 +693,52 @@ async def career_ws(ws: WebSocket, user_id: str):
 
     except WebSocketDisconnect:
         pass
+
+
+# ── WebSocket: group chat ─────────────────────────────────────────────────────
+
+@app.websocket("/ws/{room}/{username}")
+async def ws_endpoint(ws: WebSocket, room: str, username: str):
+    await manager.connect(ws, room)
+    await manager.broadcast(
+        {"type": "system", "message": f"{username} joined the room", "users": manager.count(room)},
+        room,
+    )
+    try:
+        while True:
+            text = (await ws.receive_text()).strip()
+            if not text:
+                continue
+
+            sentiment = analyze(text)
+            db = SessionLocal()
+            try:
+                msg = Message(
+                    id=str(uuid.uuid4()),
+                    room=room,
+                    username=username,
+                    content=text,
+                    sentiment_label=sentiment["label"],
+                    sentiment_score=sentiment["score"],
+                )
+                db.add(msg)
+                db.commit()
+                payload = {
+                    "type":       "message",
+                    "id":         msg.id,
+                    "username":   username,
+                    "content":    text,
+                    "sentiment":  sentiment,
+                    "created_at": msg.created_at.isoformat(),
+                }
+            finally:
+                db.close()
+
+            await manager.broadcast(payload, room)
+
+    except WebSocketDisconnect:
+        manager.disconnect(ws, room)
+        await manager.broadcast(
+            {"type": "system", "message": f"{username} left the room", "users": manager.count(room)},
+            room,
+        )
