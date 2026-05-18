@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Applications — Job Coach</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body class="bg-gray-950 text-white min-h-screen">
+<div class="max-w-4xl mx-auto px-5 py-8">
+
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-8">
+    <div>
+      <div class="flex items-center gap-3 mb-1">
+        <a href="/career" class="text-gray-500 hover:text-white transition">←</a>
+        <h1 class="text-2xl font-bold">Applications</h1>
+      </div>
+      <p class="text-gray-500 text-sm">Tracked by your Job Coach AI</p>
+    </div>
+    <a href="/career"
+      class="bg-violet-600 hover:bg-violet-500 px-4 py-2 rounded-lg text-sm font-medium transition">
+      + Open Coach
+    </a>
+  </div>
+
+  <!-- Status filter -->
+  <div class="flex gap-2 mb-6 flex-wrap" id="filterBar">
+    <button onclick="setFilter('all')" data-filter="all"
+      class="filter-btn active text-xs px-3 py-1.5 rounded-full bg-gray-700 text-white transition">All</button>
+    <button onclick="setFilter('in-progress')" data-filter="in-progress"
+      class="filter-btn text-xs px-3 py-1.5 rounded-full bg-gray-800 text-gray-400 hover:bg-gray-700 transition">In Progress</button>
+    <button onclick="setFilter('applied')" data-filter="applied"
+      class="filter-btn text-xs px-3 py-1.5 rounded-full bg-gray-800 text-gray-400 hover:bg-gray-700 transition">Applied</button>
+    <button onclick="setFilter('interview')" data-filter="interview"
+      class="filter-btn text-xs px-3 py-1.5 rounded-full bg-gray-800 text-gray-400 hover:bg-gray-700 transition">Interview</button>
+    <button onclick="setFilter('offer')" data-filter="offer"
+      class="filter-btn text-xs px-3 py-1.5 rounded-full bg-gray-800 text-gray-400 hover:bg-gray-700 transition">Offer</button>
+    <button onclick="setFilter('rejected')" data-filter="rejected"
+      class="filter-btn text-xs px-3 py-1.5 rounded-full bg-gray-800 text-gray-400 hover:bg-gray-700 transition">Rejected</button>
+  </div>
+
+  <!-- Applications list -->
+  <div id="appList" class="space-y-3">
+    <p class="text-gray-600 text-sm text-center py-12">Loading applications…</p>
+  </div>
+
+  <!-- Empty state (hidden by default) -->
+  <div id="emptyState" class="hidden text-center py-16">
+    <div class="text-4xl mb-4">📋</div>
+    <p class="text-gray-400 font-medium mb-1">No applications yet</p>
+    <p class="text-gray-600 text-sm mb-4">Your Job Coach will track them as you work together.</p>
+    <a href="/career" class="text-violet-400 hover:text-violet-300 text-sm transition">Open Job Coach →</a>
+  </div>
+
+</div>
+
+<!-- Cover letter modal -->
+<div id="modal" class="fixed inset-0 bg-black/70 z-50 hidden flex items-center justify-center p-4">
+  <div class="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-800">
+      <h2 class="font-semibold" id="modalTitle">Cover Letter</h2>
+      <button onclick="closeModal()" class="text-gray-500 hover:text-white transition text-xl leading-none">×</button>
+    </div>
+    <div class="overflow-y-auto flex-1 px-6 py-4">
+      <pre id="modalContent" class="text-sm text-gray-300 whitespace-pre-wrap leading-relaxed font-sans"></pre>
+    </div>
+    <div class="px-6 py-4 border-t border-gray-800 flex justify-end gap-3">
+      <button onclick="copyModal()"
+        class="bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded-lg text-sm transition">
+        Copy text
+      </button>
+      <button onclick="closeModal()"
+        class="bg-violet-600 hover:bg-violet-500 px-4 py-2 rounded-lg text-sm font-medium transition">
+        Done
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const STATUS_META = {
+    'in-progress': { label: 'In Progress', cls: 'bg-blue-900/40 text-blue-300 border-blue-800/50' },
+    'applied':     { label: 'Applied',      cls: 'bg-violet-900/40 text-violet-300 border-violet-800/50' },
+    'interview':   { label: 'Interview',    cls: 'bg-yellow-900/40 text-yellow-300 border-yellow-800/50' },
+    'offer':       { label: 'Offer',        cls: 'bg-green-900/40 text-green-300 border-green-800/50' },
+    'rejected':    { label: 'Rejected',     cls: 'bg-red-900/40 text-red-300 border-red-800/50' },
+  };
+
+  let allApps  = [];
+  let filter   = 'all';
+
+  function esc(t) {
+    return String(t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function timeAgo(iso) {
+    const diff = Date.now() - new Date(iso).getTime();
+    const d = Math.floor(diff / 86400000);
+    if (d === 0) return 'today';
+    if (d === 1) return 'yesterday';
+    if (d < 7)  return `${d}d ago`;
+    return new Date(iso).toLocaleDateString([], { month:'short', day:'numeric' });
+  }
+
+  async function load() {
+    const r = await fetch('/api/career/applications');
+    allApps  = await r.json();
+    render();
+  }
+
+  function render() {
+    const list    = document.getElementById('appList');
+    const empty   = document.getElementById('emptyState');
+    const visible = filter === 'all' ? allApps : allApps.filter(a => a.status === filter);
+
+    if (!allApps.length) {
+      list.innerHTML = '';
+      empty.classList.remove('hidden');
+      return;
+    }
+    empty.classList.add('hidden');
+
+    if (!visible.length) {
+      list.innerHTML = `<p class="text-gray-600 text-sm text-center py-8">No ${filter} applications.</p>`;
+      return;
+    }
+
+    list.innerHTML = visible.map(a => {
+      const meta = STATUS_META[a.status] || STATUS_META['in-progress'];
+      const hasLetter = !!a.cover_letter;
+      return `
+        <div class="bg-gray-900 border border-gray-800 rounded-xl p-5 hover:border-gray-700 transition">
+          <div class="flex items-start justify-between gap-4 flex-wrap">
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <h3 class="font-semibold text-sm">${esc(a.role)}</h3>
+                <span class="text-gray-500 text-xs">at</span>
+                <span class="font-medium text-sm text-gray-300">${esc(a.company)}</span>
+              </div>
+              ${a.notes ? `<p class="text-xs text-gray-500 mt-1.5 line-clamp-2">${esc(a.notes)}</p>` : ''}
+              <p class="text-xs text-gray-700 mt-2">Updated ${timeAgo(a.updated_at)}</p>
+            </div>
+            <div class="flex items-center gap-2 shrink-0 flex-wrap">
+              ${hasLetter ? `
+                <button onclick="viewLetter('${a.id}')"
+                  class="text-xs bg-gray-800 hover:bg-gray-700 px-3 py-1.5 rounded-lg transition">
+                  📄 Cover letter
+                </button>` : ''}
+              <span class="text-xs px-2.5 py-1 rounded-full border font-medium ${meta.cls}">${meta.label}</span>
+              <select onchange="updateStatus('${a.id}', this.value)"
+                class="text-xs bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-gray-300 focus:outline-none focus:ring-1 focus:ring-violet-500 cursor-pointer">
+                ${Object.entries(STATUS_META).map(([k,v]) =>
+                  `<option value="${k}" ${a.status===k?'selected':''}>${v.label}</option>`
+                ).join('')}
+              </select>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function setFilter(f) {
+    filter = f;
+    document.querySelectorAll('.filter-btn').forEach(b => {
+      const active = b.dataset.filter === f;
+      b.className = `filter-btn text-xs px-3 py-1.5 rounded-full transition ${active ? 'bg-gray-700 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`;
+    });
+    render();
+  }
+
+  async function updateStatus(id, status) {
+    await fetch(`/api/career/applications/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    });
+    const app = allApps.find(a => a.id === id);
+    if (app) { app.status = status; app.updated_at = new Date().toISOString(); }
+    render();
+  }
+
+  function viewLetter(id) {
+    const app = allApps.find(a => a.id === id);
+    if (!app) return;
+    document.getElementById('modalTitle').textContent = `Cover Letter — ${app.role} at ${app.company}`;
+    document.getElementById('modalContent').textContent = app.cover_letter;
+    document.getElementById('modal').classList.remove('hidden');
+  }
+
+  function closeModal() {
+    document.getElementById('modal').classList.add('hidden');
+  }
+
+  function copyModal() {
+    navigator.clipboard.writeText(document.getElementById('modalContent').textContent)
+      .then(() => {
+        const btn = event.target;
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = 'Copy text', 1500);
+      });
+  }
+
+  document.getElementById('modal').addEventListener('click', e => {
+    if (e.target === document.getElementById('modal')) closeModal();
+  });
+
+  load();
+</script>
+</body>
+</html>

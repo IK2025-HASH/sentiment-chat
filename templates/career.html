@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Job Coach — {{ profile.full_name or user.name }}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link rel="stylesheet" href="/static/style.css" />
+  <style>
+    .prose-ai p  { margin-bottom: 0.6em; }
+    .prose-ai ul { list-style: disc; padding-left: 1.25em; margin-bottom: 0.6em; }
+    .prose-ai ol { list-style: decimal; padding-left: 1.25em; margin-bottom: 0.6em; }
+    .prose-ai h1,.prose-ai h2,.prose-ai h3 { font-weight: 600; margin-bottom: 0.4em; }
+    .prose-ai code { background:#1f2937; padding:1px 5px; border-radius:4px; font-size:0.85em; }
+    .prose-ai pre  { background:#1f2937; padding:0.75em 1em; border-radius:8px; overflow-x:auto; margin-bottom:0.6em; }
+    .prose-ai pre code { background:transparent; padding:0; }
+    .typing-dot { animation: blink 1.2s infinite; }
+    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes blink { 0%,80%,100%{opacity:.2} 40%{opacity:1} }
+  </style>
+</head>
+<body class="bg-gray-950 text-white h-screen flex flex-col overflow-hidden">
+
+  <!-- Header -->
+  <header class="bg-gray-900 border-b border-gray-800 px-5 py-3 flex items-center justify-between shrink-0">
+    <div class="flex items-center gap-3">
+      <a href="/" class="text-gray-500 hover:text-white transition text-lg leading-none">←</a>
+      <div class="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-blue-600 flex items-center justify-center text-sm font-bold shrink-0">🎯</div>
+      <div>
+        <h1 class="font-semibold text-sm">Job Coach AI</h1>
+        <p class="text-xs text-gray-500">{{ profile.full_name or user.name }}</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <a href="/career/applications"
+        class="text-xs bg-gray-800 hover:bg-gray-700 px-3 py-1.5 rounded-full transition flex items-center gap-1.5">
+        📋 Applications
+      </a>
+      <a href="/logout" class="text-xs text-gray-500 hover:text-white px-3 py-1.5 rounded-full hover:bg-gray-800 transition">
+        Sign out
+      </a>
+    </div>
+  </header>
+
+  <div class="flex flex-1 overflow-hidden">
+
+    <!-- Sidebar: profile snapshot -->
+    <aside class="hidden md:flex flex-col w-64 bg-gray-900 border-r border-gray-800 p-4 shrink-0 overflow-y-auto">
+      <div class="mb-4">
+        <div class="w-12 h-12 rounded-full bg-gradient-to-br from-violet-500 to-blue-600 flex items-center justify-center text-xl font-bold mb-3">
+          {{ (profile.full_name or user.name)[0] | upper }}
+        </div>
+        <p class="font-semibold text-sm">{{ profile.full_name or user.name }}</p>
+        {% if profile.headline %}
+        <p class="text-xs text-gray-400 mt-0.5">{{ profile.headline }}</p>
+        {% endif %}
+      </div>
+
+      {% if profile.skills %}
+      <div class="mb-4">
+        <p class="text-xs text-gray-500 uppercase tracking-wider mb-2">Skills</p>
+        <div class="flex flex-wrap gap-1.5">
+          {% for skill in profile.skills[:8] %}
+          <span class="text-xs bg-gray-800 text-gray-300 px-2 py-0.5 rounded-full">{{ skill }}</span>
+          {% endfor %}
+          {% if profile.skills | length > 8 %}
+          <span class="text-xs text-gray-600">+{{ profile.skills | length - 8 }} more</span>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+
+      {% if profile.target_roles %}
+      <div class="mb-4">
+        <p class="text-xs text-gray-500 uppercase tracking-wider mb-2">Target Roles</p>
+        {% for role in profile.target_roles %}
+        <p class="text-xs text-gray-400 py-0.5">• {{ role }}</p>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <div class="mt-auto pt-4 border-t border-gray-800">
+        <p class="text-xs text-gray-600 mb-2">Quick actions</p>
+        <div class="space-y-1.5">
+          <button onclick="sendQuick('Write me a cover letter for a Senior Python Engineer role')"
+            class="w-full text-left text-xs bg-gray-800 hover:bg-gray-700 px-3 py-2 rounded-lg transition">
+            ✍️ Cover letter
+          </button>
+          <button onclick="sendQuick('Review my CV and tell me how to improve it')"
+            class="w-full text-left text-xs bg-gray-800 hover:bg-gray-700 px-3 py-2 rounded-lg transition">
+            📄 Review my CV
+          </button>
+          <button onclick="sendQuick('Run a mock interview for a Software Engineer role')"
+            class="w-full text-left text-xs bg-gray-800 hover:bg-gray-700 px-3 py-2 rounded-lg transition">
+            🎤 Mock interview
+          </button>
+          <button onclick="sendQuick('What are my strongest selling points as a candidate?')"
+            class="w-full text-left text-xs bg-gray-800 hover:bg-gray-700 px-3 py-2 rounded-lg transition">
+            💡 My strengths
+          </button>
+          <button onclick="sendQuick('Help me negotiate a better salary offer')"
+            class="w-full text-left text-xs bg-gray-800 hover:bg-gray-700 px-3 py-2 rounded-lg transition">
+            💰 Salary tips
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main: chat -->
+    <div class="flex flex-col flex-1 overflow-hidden">
+
+      {% if not has_api_key %}
+      <div class="bg-amber-900/40 border-b border-amber-800/50 px-5 py-3 text-sm text-amber-300 flex items-center gap-2">
+        ⚠️ <span>Set <code class="bg-amber-900/60 px-1.5 rounded">ANTHROPIC_API_KEY</code> in your environment to enable the AI coach.</span>
+      </div>
+      {% endif %}
+
+      <!-- Messages -->
+      <main id="messages" class="flex-1 overflow-y-auto px-4 py-5 space-y-4">
+        <!-- Welcome message -->
+        <div class="flex justify-start msg-row" id="welcomeMsg">
+          <div class="max-w-xl">
+            <p class="text-xs text-violet-400 mb-1 ml-1">Job Coach</p>
+            <div class="bg-gray-800/60 border border-gray-700/50 rounded-2xl px-4 py-3">
+              <div class="prose-ai text-sm text-gray-200 leading-relaxed">
+                <p>Hey {{ profile.full_name or user.name }}! I've loaded your profile and I'm ready to help you land your next role. 🎯</p>
+                <p>I can write cover letters, review your CV, run mock interviews, or track applications. What would you like to work on today?</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <!-- Input -->
+      <footer class="bg-gray-900 border-t border-gray-800 px-4 py-4 shrink-0">
+        <!-- Mobile quick actions -->
+        <div class="flex gap-2 mb-3 overflow-x-auto pb-1 md:hidden">
+          <button onclick="sendQuick('Write me a cover letter')" class="shrink-0 text-xs bg-gray-800 hover:bg-gray-700 px-3 py-1.5 rounded-full transition">✍️ Cover letter</button>
+          <button onclick="sendQuick('Review my CV')" class="shrink-0 text-xs bg-gray-800 hover:bg-gray-700 px-3 py-1.5 rounded-full transition">📄 Review CV</button>
+          <button onclick="sendQuick('Run a mock interview')" class="shrink-0 text-xs bg-gray-800 hover:bg-gray-700 px-3 py-1.5 rounded-full transition">🎤 Interview</button>
+        </div>
+        <form id="msgForm" class="flex gap-3">
+          <input id="msgInput" type="text" placeholder="Ask your job coach anything…" autocomplete="off"
+            class="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-sm text-white
+                   placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500
+                   focus:border-transparent transition" />
+          <button id="sendBtn" type="submit"
+            class="bg-violet-600 hover:bg-violet-500 active:bg-violet-700 text-white px-5 py-3 rounded-xl
+                   text-sm font-semibold transition-colors shrink-0 disabled:opacity-50">
+            Send
+          </button>
+        </form>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Toast notification -->
+  <div id="toast" class="fixed bottom-6 right-6 hidden z-50">
+    <div class="bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-sm shadow-xl flex items-center gap-2 max-w-xs">
+      <span id="toastIcon">📋</span>
+      <span id="toastText"></span>
+    </div>
+  </div>
+
+  <script>
+    const USER_ID = "{{ user.id }}";
+    const messagesEl = document.getElementById('messages');
+    const msgForm    = document.getElementById('msgForm');
+    const msgInput   = document.getElementById('msgInput');
+    const sendBtn    = document.getElementById('sendBtn');
+    let   waiting    = false;
+
+    // ── WebSocket ──────────────────────────────────────────────────────────────
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const ws    = new WebSocket(`${proto}//${location.host}/ws/career/${USER_ID}`);
+
+    ws.onmessage = e => {
+      const d = JSON.parse(e.data);
+
+      if (d.type === 'error') {
+        appendAI('<span class="text-red-400">' + esc(d.message) + '</span>', true);
+        setWaiting(false);
+        return;
+      }
+      if (d.type === 'thinking') {
+        showTyping();
+        return;
+      }
+      if (d.type === 'tool_action') {
+        handleToolAction(d);
+        return;
+      }
+      if (d.type === 'ai_response') {
+        removeTyping();
+        appendAI(d.content, false);
+        setWaiting(false);
+      }
+    };
+
+    ws.onclose = () => {
+      appendAI('<span class="text-gray-500">Disconnected. Refresh to reconnect.</span>', true);
+      setWaiting(false);
+    };
+
+    // ── Message rendering ──────────────────────────────────────────────────────
+    function esc(t) {
+      return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    function appendUser(text) {
+      const row = document.createElement('div');
+      row.className = 'flex justify-end msg-row';
+      row.innerHTML = `
+        <div class="max-w-sm md:max-w-lg">
+          <div class="bg-violet-600/30 border border-violet-700/40 rounded-2xl px-4 py-3">
+            <p class="text-sm text-white leading-relaxed">${esc(text)}</p>
+          </div>
+        </div>`;
+      messagesEl.appendChild(row);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function appendAI(mdOrHtml, raw) {
+      removeTyping();
+      const row = document.createElement('div');
+      row.className = 'flex justify-start msg-row';
+      const content = raw ? mdOrHtml : marked.parse(mdOrHtml);
+      row.innerHTML = `
+        <div class="max-w-xl w-full">
+          <p class="text-xs text-violet-400 mb-1 ml-1">Job Coach</p>
+          <div class="bg-gray-800/60 border border-gray-700/50 rounded-2xl px-4 py-3">
+            <div class="prose-ai text-sm text-gray-200 leading-relaxed">${content}</div>
+          </div>
+        </div>`;
+      messagesEl.appendChild(row);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    let typingEl = null;
+    function showTyping() {
+      removeTyping();
+      typingEl = document.createElement('div');
+      typingEl.className = 'flex justify-start msg-row';
+      typingEl.id = 'typingIndicator';
+      typingEl.innerHTML = `
+        <div class="max-w-xl">
+          <p class="text-xs text-violet-400 mb-1 ml-1">Job Coach</p>
+          <div class="bg-gray-800/60 border border-gray-700/50 rounded-2xl px-4 py-3 flex items-center gap-1">
+            <span class="typing-dot w-2 h-2 bg-gray-400 rounded-full inline-block"></span>
+            <span class="typing-dot w-2 h-2 bg-gray-400 rounded-full inline-block"></span>
+            <span class="typing-dot w-2 h-2 bg-gray-400 rounded-full inline-block"></span>
+          </div>
+        </div>`;
+      messagesEl.appendChild(typingEl);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function removeTyping() {
+      document.getElementById('typingIndicator')?.remove();
+    }
+
+    // ── Tool action notifications ──────────────────────────────────────────────
+    function handleToolAction(d) {
+      const { tool, data } = d;
+      if (tool === 'save_job_application') {
+        const verb = data.action === 'created' ? 'Tracked' : 'Updated';
+        showToast('📋', `${verb}: ${data.role} at ${data.company}`);
+      } else if (tool === 'update_profile') {
+        showToast('✅', 'Profile updated');
+      }
+    }
+
+    function showToast(icon, text) {
+      const toast    = document.getElementById('toast');
+      document.getElementById('toastIcon').textContent = icon;
+      document.getElementById('toastText').textContent = text;
+      toast.classList.remove('hidden');
+      setTimeout(() => toast.classList.add('hidden'), 3500);
+    }
+
+    // ── Send ───────────────────────────────────────────────────────────────────
+    function setWaiting(val) {
+      waiting = val;
+      sendBtn.disabled = val;
+      msgInput.disabled = val;
+    }
+
+    function send(text) {
+      if (!text || waiting || ws.readyState !== WebSocket.OPEN) return;
+      appendUser(text);
+      ws.send(text);
+      msgInput.value = '';
+      setWaiting(true);
+    }
+
+    function sendQuick(text) {
+      msgInput.value = text;
+      send(text);
+    }
+
+    msgForm.addEventListener('submit', e => {
+      e.preventDefault();
+      send(msgInput.value.trim());
+    });
+
+    msgInput.focus();
+  </script>
+</body>
+</html>
